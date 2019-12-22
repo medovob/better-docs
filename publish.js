@@ -9,6 +9,7 @@ var path = require('jsdoc/path');
 var taffy = require('taffydb').taffy;
 var template = require('jsdoc/template');
 var util = require('util');
+var _ = require("lodash");
 
 var bundler = require('./bundler')
 
@@ -393,6 +394,44 @@ function buildGroupNav (members, title) {
     return nav
 }
 
+function getModuleMembers(data,module) {
+    const moduleName = module.longname;
+    
+    return data.filter((member)=>{
+        return !!(member.longname.indexOf(`${moduleName}.`) === 0);
+    });
+}
+
+function buildModuleNav(members,data,opts) {
+
+    let nav = "";
+
+    var moduleOrder = _.get(opts,"moduleOrder",[]);
+
+    const modules = _.sortBy(members.modules,(module)=>{
+        return 1 - (moduleOrder.indexOf(module.name) || 10000);
+    });
+
+    if (modules && modules.length) {
+      modules.forEach((module)=>{
+
+        nav += '<h3>' + linkto(module.longname, module.name) + '</h3>';
+
+        nav += `<ul>${
+            getModuleMembers(data,module).map(function(g) {
+                // if ( g.kind !== 'typedef' && !hasOwnProp.call(seen, g.longname) ) {
+                    // seen[g.longname] = true;
+                    return `<li>${linkto(g.longname, g.name)}</li>`;
+                // }
+            }).join(`\n`)
+        }</ul>`
+
+      });
+    }
+
+    return nav;
+}
+
 /**
  * Create the navigation sidebar.
  * @param {object} members The members that will be used to create the sidebar.
@@ -408,15 +447,20 @@ function buildGroupNav (members, title) {
  * @param {array<object>} members.interfaces
  * @return {string} The HTML for the navigation sidebar.
  */
-function buildNav(members) {
+function buildNav(members,data,opts) {
+
     var nav = '<h2><a href="index.html">Home</a></h2>';
 
     var categorised = {}
     var rootScope = {}
 
-    var types = ['tutorials', 'modules', 'externals', 'namespaces', 'classes',
+    const types = opts.navTypes || ['tutorials', 'modules', 'externals', 'namespaces', 'classes',
     'components', 'interfaces', 'events', 'mixins', 'globals']
     types.forEach(function(type) {
+        if (type === "modules") {
+            nav += buildModuleNav(members,data,opts);
+            return;
+        }
         if (!members[type]) { return }
         members[type].forEach(function(element) {
             if (element.category) {
@@ -650,7 +694,7 @@ exports.publish = function(taffyData, opts, tutorials) {
     view.outputSourceFiles = outputSourceFiles;
 
     // once for all
-    view.nav = buildNav(members);
+    view.nav = buildNav(members,data().get(),opts);
     bundler(members.components, outdir, conf)
     attachModuleSymbols( find({ longname: {left: 'module:'} }), members.modules );
 
