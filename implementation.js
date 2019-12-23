@@ -18,7 +18,7 @@ function getSource(filename,[start,end]) {
 
 exports.handlers = {
   newDoclet: function({doclet}) {
-    if (doclet.undocumented) { return; }
+    if (doclet.undocumented || (doclet.kind !== "function" && doclet.kind !== "class")) { return; }
     const meta = doclet.meta || {};
     const {filename,range} = meta;
     if (filename && range) {
